@@ -1,0 +1,43 @@
+#####################################################
+###### PREDICAO DE ALVOS DOS miRNAs - mirnatap ######
+#####################################################
+#### precisa rodar para cada miRNA separadamente ####
+
+setwd("~/resultados_doc")
+
+#instalar biblioteca e banco de dados
+BiocManager::install("miRNAtap")
+BiocManager::install("miRNAtap.db")
+BiocManager::install("topGO")
+BiocManager::install("org.Hs.eg.db")
+
+#carregar bibliotecas
+library(miRNAtap)
+library(topGO)
+library(org.Hs.eg.db)
+
+#predicted target analysis
+#Predicao de alvos#
+mir = 'miR-30d-5p'
+predictions = getPredictedTargets(mir, species = 'hsa', method = 'geom', min_src = 2)
+head(predictions)
+
+#Transformar EntrezID em Gene Symbol#
+hs <- org.Hs.eg.db
+my.symbols <- row.names(predictions)
+geneid <- select(hs, keys = my.symbols, columns = c("ENTREZID", "SYMBOL"), keytype = "ENTREZID")
+row.names(predictions) <- geneid$SYMBOL
+
+#Análise de vias#
+rankedGenes = predictions[,'rank_product']
+selection = function(x) TRUE
+allGO2genes = annFUN.org(whichOnto='BP', feasibleGenes = NULL, mapping="org.Hs.eg.db", ID = "entrez")
+GOdata = new('topGOdata', ontology = 'BP', allGenes = rankedGenes,annot = annFUN.GO2genes, GO2genes = allGO2genes,geneSel = selection, nodeSize=10)
+results.ks = runTest(GOdata, algorithm = "classic", statistic = "ks")
+results.ks
+
+allRes = GenTable(GOdata, KS = results.ks, orderBy = "KS", topNodes = 40)
+allRes[,c('GO.ID','Term','KS')]
+
+
+
